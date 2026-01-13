@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>База данных К.Р.И.П.</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Montserrat:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #050505;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        .mono-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.05) 50%, rgba(0,0,0,0.05));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            animation: flicker 4s infinite alternate;
+        }
+
+        @keyframes flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+            20%, 22%, 55% { opacity: 0.8; }
+        }
+
+        .monster-card {
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(145deg, #0f0f0f, #080808);
+            border: 1px solid #1a1a1a;
+        }
+
+        .monster-card:hover {
+            transform: translateY(-5px);
+            border-color: #444;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .monster-card:hover .card-id {
+            color: #ef4444;
+        }
+
+        .modal-active {
+            animation: modalFadeIn 0.3s ease-out forwards;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .blocked-pattern {
+            background: repeating-linear-gradient(45deg, #111, #111 10px, #000 10px, #000 20px);
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #333; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+
+    <div class="scanlines"></div>
+
+    <nav class="fixed top-0 left-0 w-full z-50 p-6 flex justify-center pointer-events-none">
+        <div class="relative w-full max-w-xl pointer-events-auto">
+            <input 
+                type="text" 
+                id="searchInput"
+                placeholder="ВВЕДИТЕ ИНДЕКС К.Р.И.П..." 
+                class="w-full bg-black/90 backdrop-blur-md text-white border border-zinc-800 rounded-full py-3 px-12 focus:outline-none focus:border-red-900 transition-all mono-font text-sm tracking-widest shadow-2xl"
+            >
+            <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-zinc-700"></i>
+        </div>
+    </nav>
+
+    <header class="h-screen flex flex-col justify-center items-center text-center px-4 relative">
+        <div class="mb-6 flex flex-col items-center">
+            <i class="fas fa-radiation text-5xl text-red-600 mb-4 animate-pulse"></i>
+            <p class="mono-font text-red-600 text-[10px] md:text-xs tracking-[0.4em] font-bold uppercase text-center">
+                Комитет Расследования Иных Пространств
+            </p>
+        </div>
+        <h1 class="text-4xl md:text-7xl font-bold mb-6 glow-text tracking-tighter uppercase leading-none">
+            Что-то случилось?<br>Позвони нам.
+        </h1>
+        <p class="text-xs md:text-sm text-zinc-600 mono-font tracking-[0.6em] select-none hover:text-red-800 transition-colors">
+            *-***-***-**-**
+        </p>
+        <div class="absolute bottom-10 animate-bounce text-zinc-800">
+            <i class="fas fa-chevron-down"></i>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-20 bg-[#070707] min-h-screen border-t border-zinc-900">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-4">
+            <div>
+                <h2 class="mono-font text-red-700 text-lg tracking-[0.3em] font-bold">:: АРХИВ_КРИП</h2>
+                <p class="text-[10px] text-zinc-600 uppercase mt-1">Доступ разрешен: Уровень 4</p>
+            </div>
+            <div class="mono-font text-[10px] text-zinc-500 uppercase tracking-widest">
+                Объектов в базе: <span id="record-count" class="text-white font-bold">0</span>
+            </div>
+        </div>
+
+        <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Сюда JS вставит карточки -->
+        </div>
+    </main>
+
+    <div id="monster-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 md:p-10">
+        <div class="absolute inset-0 bg-black/95 backdrop-blur-sm" onclick="closeModal()"></div>
+        
+        <div id="modal-content" class="bg-zinc-950 border border-zinc-800 w-full max-w-5xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl z-10 relative">
+            
+            <button onclick="closeModal()" class="absolute top-6 right-6 text-zinc-500 hover:text-white z-50 transition-colors">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+
+            <div class="w-full md:w-1/2 bg-black relative flex items-center justify-center border-b md:border-b-0 md:border-r border-zinc-900 min-h-[300px]">
+                <img id="modal-img" src="" class="w-full h-full object-cover opacity-50">
+                <div id="modal-img-blocked" class="absolute inset-0 blocked-pattern flex flex-col items-center justify-center hidden">
+                    <i id="blocked-icon" class="fas fa-radiation text-4xl text-red-900 mb-4 opacity-50"></i>
+                    <p id="blocked-text" class="text-red-700 mono-font text-xs font-bold border border-red-900 px-4 py-1 uppercase text-center"></p>
+                </div>
+            </div>
+
+            <div class="w-full md:w-1/2 p-8 md:p-12 overflow-y-auto">
+                <div class="mb-10">
+                    <span id="modal-id" class="mono-font text-zinc-500 text-sm tracking-widest block mb-2">ИНДЕКС_XXX</span>
+                    <h2 id="modal-name" class="text-3xl md:text-5xl font-bold text-white uppercase tracking-tighter">Название</h2>
+                </div>
+
+                <div class="space-y-10">
+                    <div>
+                        <h3 class="mono-font text-red-800 text-[10px] uppercase tracking-[0.3em] font-bold mb-3">Описание_Объекта:</h3>
+                        <p id="modal-desc" class="text-zinc-400 leading-relaxed text-sm md:text-base font-light"></p>
+                    </div>
+                    <div>
+                        <h3 class="mono-font text-zinc-700 text-[10px] uppercase tracking-[0.3em] font-bold mb-3">Протокол_Содержания:</h3>
+                        <p id="modal-containment" class="text-zinc-500 text-sm italic border-l border-zinc-800 pl-4"></p>
+                    </div>
+                </div>
+
+                <div class="mt-12 pt-6 border-t border-zinc-900 flex justify-between items-center">
+                    <div id="modal-class-tag" class="mono-font text-[11px] font-bold tracking-widest px-3 py-1 border rounded">
+                        Класс
+                    </div>
+                    <span class="text-[9px] text-zinc-700 mono-font">К.Р.И.П. ОС_ВЕРСИЯ 2.1</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CLASSES = {
+            null: { label: 'NULL', color: 'text-green-500 border-green-900 bg-green-900/10', icon: 'fa-regular fa-check' },
+            flux: { label: 'FLUX', color: 'text-yellow-500 border-yellow-900 bg-yellow-900/10', icon: 'fa-duotone fa-regular fa-minus' },
+            rupture: { label: 'RUPTURE', color: 'text-red-600 border-red-900 bg-red-900/10', icon: 'fa-regular fa-x' },
+            distort: { label: 'DISTORT', color: 'text-blue-600 border-blue-900 bg-blue-900/10', icon: 'fa-sharp fa-thin fa-hand' }
+        };
+
+        const database = [
+            {
+                id: "КРИП-001",
+                name: "Пустой Человек",
+                class: "flux",
+                desc: "Гуманоидная фигура без черт лица. Появляется в периферийном зрении субъектов, находящихся в одиночестве более 4 часов. Не проявляет агрессии, пока на него не посмотрят напрямую через зеркало.",
+                containment: "Камера 5х5 метров с матовыми стенами. Запрещено использование любых отражающих поверхностей.",
+                image: "https://images.unsplash.com/photo-1509248961158-e54f6934749c?q=80&w=1000&auto=format&fit=crop",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-002",
+                name: "Кровавый Скрипач",
+                class: "rupture",
+                desc: "Сущность в истлевшем фраке. Играет на скрипке, сделанной из человеческих костей. Звук музыки вызывает мгновенную кристаллизацию жидкостей в теле слушателя.",
+                containment: "Звукоизолированный бункер на глубине 50 метров. Весь персонал обязан носить активные наушники с шумоподавлением.",
+                image: "https://images.unsplash.com/photo-1514312884399-3c5d882f1f8a?q=80&w=1000&auto=format&fit=crop",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-003",
+                name: "Шифр Пустоты",
+                class: "rupture",
+                desc: "Объект представляет собой визуальный когнитивный вирус. Любой, кто увидит истинную форму объекта, начинает говорить на неизвестном языке, постепенно теряя личность.",
+                containment: "Хранится на носителе в экранированном сейфе. Доступ только по приказу О5.",
+                image: "",
+                blocked: false,
+                noPhoto: true // ПАРАМЕТР ОСТАВЛЕН
+            },
+            {
+                id: "КРИП-004",
+                name: "Мимик-Комната",
+                class: "flux",
+                desc: "Аномальное пространство, принимающее вид уютной жилой комнаты. Заманивает жертв комфортом, после чего 'схлопывается', поглощая органику.",
+                containment: "Оцепление территории радиусом 100 метров. Вход в зону аномалии запрещен.",
+                image: "https://images.unsplash.com/photo-1513519245088-0e12902e35a6?q=80&w=1000&auto=format&fit=crop",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-ДАННЫЕ-УДАЛЕНЫ",
+                name: "Начало Конца",
+                class: "rupture",
+                desc: "Сведения стерты комитетом безопасности.",
+                containment: "Сведения стерты.",
+                image: "",
+                blocked: true,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-005",
+                name: "Гниющий Шепот",
+                class: "flux",
+                desc: "Разумная плесень, способная имитировать голоса близких людей. Распространяется через споры при разговоре.",
+                containment: "Герметичный био-бокс с системой фильтрации воздуха 'H-14'.",
+                image: "https://images.unsplash.com/photo-1502134249126-9f3755a50d78?q=80&w=1000&auto=format&fit=crop",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-006",
+                name: "Часовой Времени",
+                class: "null",
+                desc: "Механическая сущность, замедляющая время в радиусе 2 метров. Используется Комитетом для стабилизации других объектов.",
+                containment: "Свободное перемещение под надзором 2-х сотрудников службы безопасности.",
+                image: "https://images.unsplash.com/photo-1508921334182-66444c601e3b?q=80&w=1000&auto=format&fit=crop",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-007",
+                name: "Радио-Паразит",
+                class: "flux",
+                desc: "Электромагнитная форма жизни. Перехватывает любые сигналы связи и заменяет их на высокочастотный крик.",
+                containment: "Клетка Фарадея с толщиной стенок не менее 15 см.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-008",
+                name: "Whispershade",
+                class: "distort",
+                desc: "Тенеобразная аномалия, появляющаяся в помещениях с низкой освещённостью. Она не причиняет физического вреда человеку, но создаёт сильные помехи восприятию: коридоры и комнаты кажутся длиннее или короче, предметы изменяют форму, слышны странные звуки, а наблюдатели видят кратковременные галлюцинации. Whispershade перемещается без определённого маршрута, активна преимущественно ночью или при слабом освещении, и старается избегать прямого контакта с персоналом. Она мешает ориентации и работе в помещении, но позволяет безопасно изучать психологические эффекты аномалий.",
+                containment: "Помещение для содержания Whispershade должно быть полностью освещено, с ограниченным доступом персонала — не более двух человек одновременно. Все наблюдения ведутся через камеры для минимизации контакта, а любые аномальные проявления фиксируются и документируются в протоколах К.Р.И.П.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-009",
+                name: "Nullwalker",
+                class: "null",
+                desc: "Nullwalker — маленькое существо, напоминающее туманное пятно, которое медленно передвигается по помещению. Не проявляет агрессии, реагирует только на прямое прикосновение, иногда издаёт тихие звуки, но не причиняет вреда.",
+                containment: "Содержится в закрытой комнате с минимальной активностью персонала, наблюдение допускается дистанционно.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-010",
+                name: "Vortexling",
+                class: "flux",
+                desc: "Vortexling — аномалия, вызывающая кратковременные вихри воздуха и мелкие пространственные искажения вокруг себя. Может непредсказуемо менять направление движения, активируется при шуме или резких движениях людей.",
+                containment: "Содержится в защищённой камере с ограничением доступа, любые проявления фиксируются, персонал использует защитное оборудование.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-011",
+                name: "Apexvoid",
+                class: "rupture",
+                desc: "Apexvoid — крупная аномалия, которая искажает пространство вокруг себя, создавая участки «пустоты», где предметы исчезают. Любой контакт может привести к необратимым повреждениям объектов или помещений.",
+                containment: "Содержится в полностью изолированном хранилище с автоматическими наблюдательными системами. Доступ персонала запрещён без дистанционных средств контроля.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-012",
+                name: "Echoform",
+                class: "distort",
+                desc: "Echoform — сущность, которая повторяет движения и звуки персонала с небольшой задержкой, вызывая дезориентацию и психологический дискомфорт. Не агрессивна, но мешает выполнению задач.",
+                containment: "Дистанционное наблюдение, помещение освещено, контакт с объектом ограничен.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-013",
+                name: "Glimmerbeast",
+                class: "flux",
+                desc: "Glimmerbeast — мелкая светящаяся форма, хаотично перемещающаяся и внезапно меняющая цвет и  интенсивность свечения. Может временно ослеплять наблюдателей, реагирует на свет и движение.",
+                containment: "Изолированная камера, постоянное освещение, очки защиты для персонала, ограничение прямого контакта.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-014",
+                name: "Shattermaw",
+                class: "rupture",
+                desc: "Shattermaw — огромная аномалия с нестабильной структурой тела, способная разрушать стены и       перекрытия при приближении. Поведение непредсказуемо, любые попытки контакта крайне опасны.",
+                containment: "Полностью изолированное хранилище с дистанционным мониторингом. Любое взаимодействие только через робототехнику.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-015",
+                name: "Lumishade",
+                class: "distort",
+                desc: "Lumishade — светящаяся тень, движущаяся по стенам и потолку. Не атакует, но меняет восприятие        пространства, заставляя людей ощущать замкнутые или расширенные помещения.",
+                containment: "Наблюдение через камеры, помещение полностью освещено, минимальный контакт персонала.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-016",
+                name: "Flickerling",
+                class: "null",
+                desc: "Flickerling — крошечный аномальный объект, который периодически 'мерцает' и исчезает на короткое время. Не агрессивен, может слегка раздражать персонал своим непредсказуемым появлением.",
+                containment: "Содержится в прозрачной камере, наблюдение дистанционное, контакт минимальный.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-017",
+                name: "Riftstalker",
+                class: "flux",
+                desc: "Riftstalker — аномалия, способная внезапно появляться через 'разрывы' в стенах и полу. Не атакует напрямую, но пугает и мешает перемещению персонала. Активна при слабом освещении и сильном шуме.",
+                containment: "Защищённая камера с непрерывным освещением, ограниченный доступ персонала, фиксирование всех проявлений.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-018",
+                name: "Time Warden",
+                class: "null",
+                desc: "Time Warden — аномалия, замедляющая течение времени в пределах 3 метров. Не агрессивна, используется для стабилизации других объектов или экспериментов К.Р.И.П.",
+                containment: "Размещается в отдельной комнате под надзором двух сотрудников. Доступ ограничен.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-019",
+                name: "Mirror Lurker",
+                class: "distort",
+                desc: "Mirror Lurker — тень, появляющаяся только в отражениях. Не атакует напрямую, но может вызывать       панические реакции и дезориентацию у людей, долго смотрящих в зеркала.",
+                containment: "Отражающие поверхности убраны, помещение полностью освещено, наблюдение через камеры.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            },
+            {
+                id: "КРИП-020",
+                name: "Oblivion Maw",
+                class: "rupture",
+                desc: "Oblivion Maw — огромная аномалия с черепоподобной формой, создающая 'зоны пустоты', где предметы и       живые существа исчезают. Любое приближение крайне опасно.",
+                containment: "Полная изоляция, автоматические наблюдательные системы, доступ персонала запрещён без         дистанционных средств.",
+                image: "",
+                blocked: false,
+                noPhoto: true
+            }
+
+        ];
+
+        const grid = document.getElementById('grid-container');
+        const searchInput = document.getElementById('searchInput');
+
+        function render(data) {
+            grid.innerHTML = '';
+            document.getElementById('record-count').innerText = data.length;
+
+            data.forEach(item => {
+                const classInfo = CLASSES[item.class];
+                const card = document.createElement('div');
+                card.className = "monster-card p-6 md:p-8 rounded-lg flex flex-col h-full group";
+                card.onclick = () => openModal(item.id);
+
+                const descContent = item.blocked ? 
+                    '<span class="bg-zinc-800 text-transparent select-none rounded">ИНФОРМАЦИЯ УДАЛЕНА</span>' : 
+                    item.desc.substring(0, 100) + '...';
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-6">
+                        <span class="card-id mono-font text-[10px] tracking-widest text-zinc-600 transition-colors uppercase">${item.id}</span>
+                        ${item.blocked ? '<i class="fas fa-lock text-red-900 text-xs"></i>' : ''}
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-4 uppercase tracking-tighter">${item.name}</h3>
+                    <p class="text-zinc-500 text-xs leading-relaxed mb-8 flex-grow">${descContent}</p>
+                    <div class="pt-4 border-t border-zinc-900 flex items-center justify-between">
+                        <div class="flex items-center gap-2 ${classInfo.color} mono-font text-[9px] font-bold tracking-[0.2em] px-2 py-1 rounded border">
+                            <i class="fas ${classInfo.icon}"></i>
+                            ${classInfo.label}
+                        </div>
+                        <i class="fas fa-angle-right text-zinc-800 text-sm transition-transform group-hover:translate-x-1"></i>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openModal(id) {
+            const item = database.find(i => i.id === id);
+            const modal = document.getElementById('monster-modal');
+            const classInfo = CLASSES[item.class];
+            const content = document.getElementById('modal-content');
+
+            document.getElementById('modal-id').innerText = `${item.id}`;
+            document.getElementById('modal-name').innerText = item.name;
+            
+            const tag = document.getElementById('modal-class-tag');
+            tag.className = `mono-font text-[11px] font-bold tracking-widest px-3 py-1 border rounded ${classInfo.color}`;
+            tag.innerText = `КЛАСС: ${classInfo.label}`;
+
+            const imgEl = document.getElementById('modal-img');
+            const blockedEl = document.getElementById('modal-img-blocked');
+            const blockedIcon = document.getElementById('blocked-icon');
+            const blockedText = document.getElementById('blocked-text');
+
+            if (item.blocked) {
+                imgEl.classList.add('hidden');
+                blockedEl.classList.remove('hidden');
+                blockedIcon.className = "fas fa-radiation text-4xl text-red-900 mb-4 opacity-50";
+                blockedText.innerText = "Файл заблокирован";
+                document.getElementById('modal-desc').innerHTML = `<span class="text-red-700 font-bold uppercase tracking-widest">[ДАННЫЕ УДАЛЕНЫ ПО ПРИКАЗУ К.Р.И.П.]</span>`;
+                document.getElementById('modal-containment').innerText = "[УДАЛЕНО]";
+            } else if (item.noPhoto) {
+                imgEl.classList.add('hidden');
+                blockedEl.classList.remove('hidden');
+                blockedIcon.className = "fas fa-camera-slash text-4xl text-zinc-700 mb-4 opacity-50";
+                blockedText.innerText = "Фото отсутствует";
+                document.getElementById('modal-desc').innerText = item.desc;
+                document.getElementById('modal-containment').innerText = item.containment;
+            } else {
+                imgEl.src = item.image;
+                imgEl.classList.remove('hidden');
+                blockedEl.classList.add('hidden');
+                document.getElementById('modal-desc').innerText = item.desc;
+                document.getElementById('modal-containment').innerText = item.containment || "Нет особых условий.";
+            }
+
+            modal.classList.remove('hidden');
+            content.classList.add('modal-active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('monster-modal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase().trim();
+            const filtered = database.filter(i => i.id.toLowerCase().includes(val) || i.name.toLowerCase().includes(val));
+            render(filtered);
+        });
+
+        window.onload = () => render(database);
+    </script>
+</body>
+</html>
